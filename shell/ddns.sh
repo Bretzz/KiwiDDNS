@@ -1,0 +1,40 @@
+#!/bin/sh
+set -e  # Exit immediately if any command exits with a non-zero status
+
+if [ -f .env ]; then
+    set -a            # Automatically export all variables
+    source .env       # Read the file
+    set +a            # Disable automatic export
+fi
+
+echo 'Updating DNS to redirect to current IP ...'
+[ -z "$ACCOUNT_ID" ] && echo "Error: Could not get Account ID from .env" && exit 1
+[ -z "$DOMAIN_NAME" ] && echo "Error: Could not get Domain Name from .env" && exit 1
+[ -z "$CLOUDFLARE_API_TOKEN" ] && echo "Error: Could not get Cloudflare API Token from .env" && exit 1
+
+echo Account: $ACCOUNT_ID Domain: $DOMAIN_NAME Token: $CLOUDFLARE_API_TOKEN
+
+RECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+	-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+	-H "Content-Type: application/json" | jq -r '.result[0].id')
+
+[ -z "$RECORD_ID" ] && echo "Error: Could not get Record ID" && exit 1
+echo "Found RECORD_ID $RECORD_ID"
+
+MY_IP=$(curl -s https://ifconfig.me)
+
+[ -z "$MY_IP" ] && echo "Error: Could not get IP" && exit 1
+echo "MY_IP $MY_IP"
+
+curl -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+	-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+	-H "Content-Type: application/json" \
+	--data "{
+		\"content\": \"$MY_IP\",
+		\"ttl\": 1,
+		\"proxied\": false
+	}"
+
+
+
+# 37.182.153.134
