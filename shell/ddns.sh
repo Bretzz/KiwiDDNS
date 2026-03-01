@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 
 # Exit immediately if any command exits with a non-zero status
 set -e
 
- # This moves the script's context to its own folder
+# This moves the script's context to its own folder
 cd "$(dirname "$0")"
 
 # This loads the env variables
