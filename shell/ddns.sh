@@ -9,6 +9,18 @@ cd "$(dirname "$0")"
 # This loads the env variables
 source .env
 
+echo "Checking if the Current IP changed ..."
+
+[ -z "$CURRENT_IP" ] && echo "Error: Could not get Current IP from .env" && exit 1
+
+MY_IP=$(curl -s https://ifconfig.me)
+
+[ -z "$MY_IP" ] && echo "Error: Could not get IP" && exit 1
+
+[[ "$MY_IP" == "$CURRENT_IP" ]] && echo "The Current IP did not change. No Cloudflare API calls will be performed." && exit 0
+
+sed -i "s|^CURRENT_IP=.*|CURRENT_IP=\"$MY_IP\"|" .env
+
 echo 'Updating DNS to redirect to current IP ...'
 
 [ -z "$ACCOUNT_ID" ] && echo "Error: Could not get Account ID from .env" && exit 1
@@ -19,24 +31,20 @@ echo 'Domain OK'
 echo 'Token OK'
 
 RECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
-	-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-	-H "Content-Type: application/json" | jq -r '.result[0].id')
+        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+        -H "Content-Type: application/json" | jq -r '.result[0].id')
 
 [ -z "$RECORD_ID" ] && echo "Error: Could not get Record ID" && exit 1
 echo "Record ID OK"
 
-MY_IP=$(curl -s https://ifconfig.me)
-
-[ -z "$MY_IP" ] && echo "Error: Could not get IP" && exit 1
-echo "IP OK"
-
 curl -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
-	-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-	-H "Content-Type: application/json" \
-	--data "{
-		\"content\": \"$MY_IP\",
-		\"ttl\": 1,
-		\"proxied\": false
-	}"
+        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "{
+                \"content\": \"$MY_IP\",
+                \"ttl\": 1,
+                \"proxied\": false
+        }"
 
 echo 'Done'
+
